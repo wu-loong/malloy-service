@@ -1,0 +1,50 @@
+name: Build malloy-service macOS ARM64
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-14  # Apple Silicon runner
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Package ARM64 binary
+        run: |
+          npx pkg -t node18-macos-arm64 -c package.json dist/server.js -o malloy-service-macos-arm64
+          file malloy-service-macos-arm64
+          ls -lh malloy-service-macos-arm64
+
+      - name: Quick smoke test
+        run: |
+          chmod +x malloy-service-macos-arm64
+          ./malloy-service-macos-arm64 -p 0 &
+          sleep 3
+          kill %1 || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: malloy-service-macos-arm64
+          path: malloy-service-macos-arm64
+
+      - name: Create Release
+        if: github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: macos-arm64-${{ github.run_number }}
+          name: malloy-service macOS ARM64 build ${{ github.run_number }}
+          files: malloy-service-macos-arm64
+          draft: false
